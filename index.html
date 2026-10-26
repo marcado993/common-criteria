@@ -84,6 +84,7 @@
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" id="t1" aria-selected="true">Pistas del caso</button>
     <button class="tab" role="tab" id="t2" aria-selected="false">Pistas rápidas</button>
+    <button class="tab" role="tab" id="t6" aria-selected="false">Casos de abuso</button>
     <button class="tab" role="tab" id="t3" aria-selected="false">Buscar y explorar</button>
     <button class="tab" role="tab" id="t4" aria-selected="false">Practicar</button>
     <button class="tab" role="tab" id="t5" aria-selected="false">Mi lista <span id="n5"></span></button>
@@ -136,6 +137,33 @@
     <div class="row"><span class="lbl">Clase:</span><span class="cl"></span></div>
     <div class="stats"><span>Aciertos: <span id="okn">0</span></span><span>Intentos: <span id="tryn">0</span></span><span>Racha: <span id="streak">0</span></span><button class="chip" id="rstq">Reiniciar</button></div>
     <div id="quiz"></div>
+  </section>
+
+  <section id="p6" hidden>
+    <details open>
+      <summary>¿Para qué sirven los casos de abuso?</summary>
+      <dl>
+        <dt>Caso de uso vs. caso de abuso</dt><dd>Un caso de uso describe lo que un usuario legítimo quiere hacer con el sistema. Un caso de abuso describe lo que un atacante (o un usuario malintencionado) intenta hacerle al sistema.</dd>
+        <dt>Por qué ayudan</dt><dd>Cada caso de abuso deja claro qué amenaza existe y qué debería impedirla. De ahí salen los requisitos de seguridad, y de los requisitos salen los SFR de Common Criteria.</dd>
+        <dt>El camino</dt><dd><strong>Caso de abuso</strong> (actor + acción + activo + impacto) → <strong>requisito de seguridad</strong> («el sistema debe…») → <strong>SFR</strong> (componente CC).</dd>
+        <dt>Cuándo se hacen</dt><dd>Al levantar requisitos, antes de diseñar y programar. Si se omiten, los requisitos solo cubren lo que el negocio quiere que el sistema haga, y la seguridad queda sin especificar.</dd>
+      </dl>
+    </details>
+
+    <h3 style="margin:14px 0 6px">Arma tu propio caso de abuso</h3>
+    <div class="q">
+      <div class="row"><span class="lbl" style="min-width:110px">Actor</span><input type="text" id="ab-actor" placeholder="Quién ataca: empleado interno, atacante externo, ex-empleado…"></div>
+      <div class="row"><span class="lbl" style="min-width:110px">Qué hace</span><input type="text" id="ab-accion" placeholder="Qué acción maliciosa realiza"></div>
+      <div class="row"><span class="lbl" style="min-width:110px">Activo atacado</span><input type="text" id="ab-activo" placeholder="Qué dato o función quiere afectar"></div>
+      <div class="row"><span class="lbl" style="min-width:110px">Impacto</span><input type="text" id="ab-impacto" placeholder="Qué daño causa (fraude, fuga, interrupción…)"></div>
+      <div class="row"><span class="lbl" style="min-width:110px">Requisito</span><input type="text" id="ab-req" placeholder="El sistema debe… (lo que lo evitaría)"></div>
+      <div class="row"><button class="btn" id="ab-sug">Sugerir SFR</button><button class="btn ghost" id="ab-copy">Copiar caso de abuso</button><button class="btn ghost" id="ab-clr">Limpiar</button></div>
+      <div id="ab-res"></div>
+    </div>
+
+    <h3 style="margin:14px 0 6px">Biblioteca de casos de abuso comunes</h3>
+    <input type="search" id="ab-q" placeholder="Filtra la biblioteca: contraseñas, sesión, red, permisos, registros…" autocomplete="off">
+    <div id="ab-list"></div>
   </section>
 
   <section id="p5" hidden>
@@ -366,7 +394,7 @@ function toggle(id) {
 
 // ---------- navegación
 function tab(n) {
-  for (let i=1;i<=5;i++) { $('#p'+i).hidden = i!==n; $('#t'+i).setAttribute('aria-selected', i===n); }
+  for (let i=1;i<=6;i++) { $('#p'+i).hidden = i!==n; $('#t'+i).setAttribute('aria-selected', i===n); }
   if (n===3) { search(); $('#q').focus(); } else if (n===1) $('#case').focus();
   else if (n===4) { if (!cur) nextQ(); } else if (n===5) renderMine();
 }
@@ -401,12 +429,64 @@ $('#case').addEventListener('keydown', e => { if (e.key==='Enter' && (e.ctrlKey|
 $('#q').addEventListener('input', search);
 $('#onlymine').addEventListener('change', search);
 $('#rstq').onclick = () => { S={ok:0,tr:0,st:0}; renderScore(); };
-for (let i=1;i<=5;i++) $('#t'+i).onclick = () => tab(i);
+for (let i=1;i<=6;i++) $('#t'+i).onclick = () => tab(i);
 document.addEventListener('keydown', e => { if (e.key==='/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); tab(3); } });
 function setDark(on) { document.documentElement.dataset.theme = on?'dark':'light'; $('#dark').textContent = on?'Modo claro':'Modo oscuro'; store.set('ccdark', on); }
 $('#dark').onclick = () => setDark(document.documentElement.dataset.theme!=='dark');
 setDark(store.get('ccdark', window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches));
-renderFilters(); renderBasket(); renderCues(); renderScore();
+// ---------- casos de abuso
+const ABUSE = [
+  {t:'Empleado interno altera datos y borra el rastro', actor:'Empleado interno con acceso a la base de datos', accion:'Modifica registros sensibles (por ejemplo, cuentas bancarias) y borra los registros de auditoría', activo:'Datos financieros y pista de auditoría', impacto:'Fraude sin posibilidad de rastrear al responsable', req:'Toda modificación debe quedar registrada con la identidad del usuario, y los registros de auditoría deben estar protegidos contra borrado o alteración', sfr:['FAU_GEN.1','FAU_GEN.2','FAU_STG.2','FAU_STG.4','FPT_STM.1']},
+  {t:'Usuario curioso accede a datos de otros cambiando un parámetro', actor:'Empleado con cuenta legítima', accion:'Cambia el ID en la URL o en la API para consultar objetos que no son suyos', activo:'Información confidencial (nómina, expedientes)', impacto:'Fuga de datos confidenciales', req:'Cada petición debe verificarse contra los permisos del usuario sobre ese objeto, y las acciones sensibles deben pedir reautenticación', sfr:['FDP_ACC.1','FDP_ACF.1','FIA_UAU.6']},
+  {t:'Ataque automatizado de contraseñas', actor:'Atacante externo con herramientas de diccionario', accion:'Prueba miles de contraseñas contra cuentas privilegiadas', activo:'Cuenta de administrador', impacto:'Toma de control del sistema', req:'El sistema debe bloquear o retrasar tras intentos fallidos, exigir contraseñas robustas y un segundo factor para cuentas privilegiadas', sfr:['FIA_AFL.1','FIA_SOS.1','FIA_UAU.5']},
+  {t:'Terminal desatendida con sesión abierta', actor:'Persona no autorizada con acceso físico', accion:'Usa una terminal que quedó con sesión iniciada para hacer cambios manuales', activo:'Inventario u otros datos operativos', impacto:'Alteración no autorizada atribuida a otra persona', req:'El sistema debe bloquear y terminar sesiones tras un periodo de inactividad', sfr:['FTA_SSL.1','FTA_SSL.3','FTA_SSL.2']},
+  {t:'Interceptación y modificación del tráfico', actor:'Atacante en la red (interno o externo)', accion:'Intercepta comunicaciones sin cifrar y altera los datos en tránsito', activo:'Datos enviados entre módulos y servidor', impacto:'Datos falsos en la base central; pérdida de confidencialidad', req:'Las comunicaciones deben viajar por canal cifrado y con verificación de integridad', sfr:['FTP_ITC.1','FDP_UCT.1','FDP_UIT.1','FPT_ITI.1']},
+  {t:'Reenvío de una transacción capturada', actor:'Atacante en la red', accion:'Captura una transacción válida y la envía otra vez', activo:'Transacciones financieras u operativas', impacto:'Operaciones duplicadas', req:'El sistema debe detectar mensajes repetidos', sfr:['FPT_RPL.1','FDP_UIT.1']},
+  {t:'Usuario se auto-asigna privilegios', actor:'Usuario con rol básico', accion:'Se asigna roles de auditor o de administrador sin aprobación', activo:'Gestión de roles y permisos', impacto:'Escalada de privilegios y conflicto de intereses', req:'Los roles deben tener restricciones de combinación y asignarse solo con solicitud y aprobación explícitas', sfr:['FMT_SMR.1','FMT_SMR.2','FMT_SMR.3','FMT_MSA.1']},
+  {t:'Objetos nuevos quedan abiertos por defecto', actor:'Cualquier usuario registrado', accion:'Aprovecha que los módulos o tablas nuevas nacen con permisos globales', activo:'Módulos, tablas y datos nuevos', impacto:'Lectura o escritura indebida de datos', req:'Los valores por defecto de permisos deben ser restrictivos y solo roles autorizados pueden ampliarlos', sfr:['FMT_MSA.3','FDP_ACF.1','FMT_MSA.1']},
+  {t:'Ex-empleado conserva acceso', actor:'Ex-empleado o contratista', accion:'Sigue usando su cuenta tras salir de la organización', activo:'Sistemas y datos internos', impacto:'Acceso no autorizado y posible sabotaje', req:'Los permisos deben poder revocarse de inmediato y las cuentas temporales deben caducar', sfr:['FMT_REV.1','FMT_SAE.1','FIA_UID.2']},
+  {t:'Robo de la base de datos o de respaldos', actor:'Atacante con acceso a archivos o respaldos', accion:'Copia la base de datos o los respaldos', activo:'Datos almacenados', impacto:'Fuga masiva de información', req:'Los datos sensibles deben almacenarse cifrados y con gestión adecuada de claves', sfr:['FDP_SDC.1','FCS_COP.1','FCS_CKM.1','FCS_CKM.4']},
+  {t:'Denegación de servicio', actor:'Atacante externo o usuario abusivo', accion:'Satura el sistema con peticiones o consume recursos', activo:'Disponibilidad del servicio', impacto:'Interrupción de la operación', req:'El sistema debe limitar el uso de recursos por usuario, priorizar servicios críticos y tolerar fallos', sfr:['FRU_RSA.1','FRU_PRS.1','FRU_FLT.1']},
+  {t:'Un usuario niega haber realizado una operación', actor:'Usuario o socio comercial', accion:'Niega haber enviado o aprobado una transacción', activo:'Transacciones y aprobaciones', impacto:'Disputas sin pruebas', req:'El sistema debe generar evidencia del origen de las operaciones y registrar al responsable', sfr:['FCO_NRO.1','FCO_NRO.2','FAU_GEN.2']},
+  {t:'Administrador abusa de sus privilegios sin ser detectado', actor:'Administrador malintencionado', accion:'Usa sus privilegios para consultar o cambiar datos sin justificación', activo:'Datos y configuración del sistema', impacto:'Abuso de confianza y fraude', req:'Las acciones privilegiadas deben auditarse, analizarse y generar alertas; los registros solo los revisa un rol independiente', sfr:['FAU_SAA.1','FAU_ARP.1','FAU_SAR.2','FMT_SMR.2']},
+  {t:'Sesión robada o usada desde lugares inusuales', actor:'Atacante con credenciales robadas', accion:'Abre varias sesiones o entra desde ubicaciones u horarios anormales', activo:'Cuenta de usuario', impacto:'Suplantación de identidad', req:'El sistema debe limitar sesiones simultáneas y restringir el establecimiento de sesión por atributos', sfr:['FTA_MCS.1','FTA_TSE.1','FTA_TAH.1']},
+  {t:'Falla del sistema deja la seguridad abierta', actor:'Fallo técnico aprovechado por un atacante', accion:'Provoca o aprovecha una caída que deja funciones de seguridad desactivadas', activo:'Funciones de seguridad', impacto:'Acceso sin controles', req:'Ante un fallo, el sistema debe mantener un estado seguro y recuperarse de forma controlada', sfr:['FPT_FLS.1','FPT_RCV.1','FPT_RCV.2']},
+  {t:'Puerta trasera o modo de depuración activo', actor:'Atacante externo o interno', accion:'Usa funciones de prueba o depuración que quedaron habilitadas en producción', activo:'Funciones internas del sistema', impacto:'Evasión de los controles de seguridad', req:'El sistema solo debe ofrecer las capacidades necesarias y restringir las funciones de prueba', sfr:['FMT_LIM.1','FMT_LIM.2']}
+];
+function renderAbuse() {
+  const q = norm($('#ab-q').value).split(/\s+/).filter(Boolean);
+  const list = ABUSE.filter(a => { const h = norm([a.t,a.actor,a.accion,a.activo,a.impacto,a.req,a.sfr.join(' ')].join(' ')); return q.every(w => h.includes(w)); });
+  $('#ab-list').innerHTML = list.map(a => { const i = ABUSE.indexOf(a); return `<div class="fam"><div class="fh"><span class="es">${esc(a.t)}</span></div>
+    <div style="padding:8px 12px"><table><tbody>
+    <tr><th style="width:120px">Actor</th><td>${esc(a.actor)}</td></tr>
+    <tr><th>Qué hace</th><td>${esc(a.accion)}</td></tr>
+    <tr><th>Activo</th><td>${esc(a.activo)}</td></tr>
+    <tr><th>Impacto</th><td>${esc(a.impacto)}</td></tr>
+    <tr><th>Requisito</th><td>${esc(a.req)}</td></tr>
+    <tr><th>SFR</th><td>${a.sfr.filter(id=>COMPS[id]).map(id => `<div>${link(id)} <span class="hint">${esc(COMPS[id].n)}</span></div>`).join('')}</td></tr></tbody></table>
+    <div class="row"><button class="chip" data-abadd="${i}">Agregar sus SFR a mi lista</button><button class="chip" data-abuse="${i}">Usar como plantilla</button><button class="chip" data-abcopy="${i}">Copiar</button></div></div></div>`; }).join('') || '<div class="empty">Ningún caso coincide. Prueba otra palabra.</div>';
+}
+const abText = a => `CASO DE ABUSO: ${a.t||''}\nActor: ${a.actor||''}\nQué hace: ${a.accion||''}\nActivo atacado: ${a.activo||''}\nImpacto: ${a.impacto||''}\nRequisito de seguridad: ${a.req||''}\nSFR: ${(a.sfr||[]).map(id => COMPS[id] ? id+' ('+COMPS[id].n+')' : id).join('; ')}`;
+const abForm = () => ({t:'', actor:$('#ab-actor').value.trim(), accion:$('#ab-accion').value.trim(), activo:$('#ab-activo').value.trim(), impacto:$('#ab-impacto').value.trim(), req:$('#ab-req').value.trim(), sfr:basket.slice()});
+function abSuggest() {
+  const f = abForm(); const text = norm([f.actor,f.accion,f.activo,f.impacto,f.req].join(' '));
+  if (text.trim().length < 8) { $('#ab-res').innerHTML = '<div class="empty">Completa al menos «Qué hace» y «Activo atacado» para sugerir SFR.</div>'; return; }
+  const words = text.split(/[^a-z0-9ñ]+/).filter(Boolean), wset = new Set(words);
+  const stem = (a,b) => a.length>=5 && b.length>=5 && (a.startsWith(b.slice(0,Math.max(5,b.length-2))) || b.startsWith(a.slice(0,Math.max(5,a.length-2))));
+  const sc = FAMS.map(fm => { let s=0; const hit=[]; fm.kwSet.forEach(w => { if (wset.has(w) || words.some(x => stem(x,w))) { s += 1/df[w]; hit.push(w); } }); return {fm,s,hit}; }).filter(x => x.s>0).sort((a,b) => b.s-a.s).slice(0,4);
+  $('#ab-res').innerHTML = sc.length ? '<div class="hint" style="margin:8px 0">SFR sugeridos para este caso de abuso. Marca con «+» los que uses; se copiarán junto al caso.</div>' + sc.map(x => famCard(x.fm, {why:x.hit.join(', ')}, x.fm.c, x.hit)).join('') : '<div class="empty">No encontré sugerencias. Usa palabras más concretas (por ejemplo: sesión, contraseña, permisos, registros, red).</div>';
+}
+['#ab-actor','#ab-accion','#ab-activo','#ab-impacto','#ab-req'].forEach(s => $(s).addEventListener('keydown', e => { if (e.key==='Enter') abSuggest(); }));
+$('#ab-sug').onclick = abSuggest;
+$('#ab-copy').onclick = () => { const f = abForm(); if (!f.accion && !f.actor) return toast('Completa el caso primero'); copy(abText(f), 'Caso de abuso copiado (incluye los SFR de mi lista)'); };
+$('#ab-clr').onclick = () => { ['#ab-actor','#ab-accion','#ab-activo','#ab-impacto','#ab-req'].forEach(s => $(s).value=''); $('#ab-res').innerHTML=''; };
+$('#ab-q').addEventListener('input', renderAbuse);
+document.addEventListener('click', e => {
+  const ad = e.target.closest('[data-abadd]'); if (ad) { const a = ABUSE[+ad.dataset.abadd]; let n=0; a.sfr.forEach(id => { if (COMPS[id] && !basket.includes(id)) { basket.push(id); n++; } }); store.set('ccbasket',basket); renderBasket(); return toast(n ? n+' SFR agregados a mi lista' : 'Ya estaban en mi lista'); }
+  const us = e.target.closest('[data-abuse]'); if (us) { const a = ABUSE[+us.dataset.abuse]; $('#ab-actor').value=a.actor; $('#ab-accion').value=a.accion; $('#ab-activo').value=a.activo; $('#ab-impacto').value=a.impacto; $('#ab-req').value=a.req; abSuggest(); $('#ab-actor').scrollIntoView({block:'center'}); return; }
+  const cp = e.target.closest('[data-abcopy]'); if (cp) return copy(abText(ABUSE[+cp.dataset.abcopy]), 'Caso de abuso copiado');
+});
+renderFilters(); renderBasket(); renderCues(); renderScore(); renderAbuse();
 </script>
 </body>
 </html>
